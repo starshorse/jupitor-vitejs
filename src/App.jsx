@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
-// lucide-react가 설치되지 않았다면 2단계의 --legacy-peer-deps 옵션을 확인하세요.
-// Shield 아이콘 추가
-import { Menu, X, LogOut, FileSpreadsheet, Users, Settings, BarChart3, Lock, Shield } from 'lucide-react';
+// [추가] Key 아이콘 추가
+import { Menu, X, LogOut, FileSpreadsheet, Users, Settings, BarChart3, Lock, Shield, Key } from 'lucide-react';
+// [추가] 분리된 컴포넌트 import
+import SpreadSheet from './components/SpreadSheet';
+import AuthKey from './components/AuthKey'; // [신규] AuthKey import
 
 // Redux Slices
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
-    isAuthenticated: false, // 기본값을 false로 변경 (로그인 필요)
+    isAuthenticated: false,
     user: null,
     token: null
   },
@@ -68,129 +70,54 @@ const store = configureStore({
 const { login, logout } = authSlice.actions;
 const { updateConfig, resetConfig } = configSlice.actions;
 
-// Page Components
+// --- Page Components ---
+
 const DBManagementPage = () => {
-  const config = useSelector((state) => state.config);
   const user = useSelector((state) => state.auth.user);
-  const spreadHostRef = useRef(null);
-  const spreadRef = useRef(null);
-
-  useEffect(() => {
-    const loadSpreadJS = async () => {
-      const cssLink = document.createElement('link');
-
-		// CSS 로드 체크 및 추가
-      const existingCss = document.querySelector('link[href*="gc.spread.sheets"]');
-      if (!existingCss) {
-        const cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/spreadjs/12.2.5/css/gc.spread.sheets.excel2016colorful.12.2.5.css';
-        document.head.appendChild(cssLink);
-      }
-
-      // JS 로드 체크 및 추가
-      const existingScript = document.querySelector('script[src*="gc.spread.sheets"]');
-      if (existingScript) {
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/spreadjs/12.2.5/scripts/gc.spread.sheets.all.12.2.5.min.js';
-      script.async = false;
-
-      script.onload = () => {
-        if (window.GC && window.GC.Spread && spreadHostRef.current && !spreadRef.current) {
-          const spread = new window.GC.Spread.Sheets.Workbook(spreadHostRef.current, {
-            sheetCount: 1,
-            newTabVisible: true
-          });
-          
-          const sheet = spread.getActiveSheet();
-          sheet.setRowCount(config.itemsPerPage || 50);
-          sheet.setColumnCount(26);
-          
-          // 헤더 설정
-          const headers = ['DB명', '사용자', '권한', '생성일', '상태', '비고'];
-          headers.forEach((header, i) => {
-            sheet.setValue(0, i, header);
-            const headerStyle = new window.GC.Spread.Sheets.Style();
-            headerStyle.backColor = '#4c51bf';
-            headerStyle.foreColor = '#ffffff';
-            headerStyle.font = 'bold 12px Arial';
-            headerStyle.hAlign = window.GC.Spread.Sheets.HorizontalAlign.center;
-            sheet.setStyle(0, i, headerStyle);
-            sheet.setColumnWidth(i, 150);
-          });
-          
-          // 샘플 데이터
-          const sampleData = [
-            ['DB_PROD_01', user?.email || 'admin@ez-office.co.kr', 'READ/WRITE', '2024-01-15', '활성', '프로덕션 DB'],
-            ['DB_PROD_02', 'user@ez-office.co.kr', 'READ', '2024-02-20', '활성', '읽기 전용'],
-            ['DB_TEST_01', 'dev@ez-office.co.kr', 'READ/WRITE', '2024-03-10', '비활성', '테스트 DB']
-          ];
-          
-          sampleData.forEach((row, rowIndex) => {
-            row.forEach((cell, colIndex) => {
-              sheet.setValue(rowIndex + 1, colIndex, cell);
-            });
-          });
-          
-          spreadRef.current = spread;
-        }
-      };
-      
-      document.body.appendChild(script);
-    };
-
-    loadSpreadJS();
-  }, [config.itemsPerPage, user]);
+  
+  const headers = ['DB명', '사용자', '권한', '생성일', '상태', '비고'];
+  const data = [
+    ['DB_PROD_01', user?.email || 'admin@ez-office.co.kr', 'READ/WRITE', '2024-01-15', '활성', '프로덕션 DB'],
+    ['DB_PROD_02', 'user@ez-office.co.kr', 'READ', '2024-02-20', '활성', '읽기 전용'],
+    ['DB_TEST_01', 'dev@ez-office.co.kr', 'READ/WRITE', '2024-03-10', '비활성', '테스트 DB']
+  ];
 
   return (
-    <div>
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">DB 권한관리</h1>
-        <p className="text-gray-600">
-          현재 사용자: {user?.name} ({user?.email})
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          표시 행 수: {config.itemsPerPage} | 자동저장: {config.autoSave ? '활성' : '비활성'}
-        </p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div 
-          ref={spreadHostRef}
-          style={{ 
-            width: '100%', 
-            height: '600px',
-            border: '1px solid #e5e7eb'
-          }}
-        />
-      </div>
-    </div>
+    <SpreadSheet 
+      title="DB 권한관리"
+      subTitle={`현재 사용자: ${user?.name} (${user?.email})`}
+      headers={headers}
+      data={data}
+    />
   );
 };
 
-// 새로 추가된 웹권한관리 페이지
 const WebAuthPage = () => {
-  const user = useSelector((state) => state.auth.user);
+  const headers = ['메뉴 ID', '메뉴명', 'URL', '읽기 권한', '쓰기 권한', '관리자 전용', '비고'];
+  const columnWidths = [100, 150, 200, 100, 100, 100, 150];
+  const data = [
+    ['MENU_001', '대시보드', '/dashboard', '전체', '불가', 'X', '기본 페이지'],
+    ['MENU_002', 'DB 권한관리', '/db-auth', '관리자', '관리자', 'O', '보안 주의'],
+    ['MENU_003', '웹 권한관리', '/web-auth', '슈퍼관리자', '슈퍼관리자', 'O', '시스템 설정'],
+    ['MENU_004', '서비스 설정', '/settings', '관리자', '관리자', 'O', '-'],
+    ['MENU_005', '리포트', '/report', '전체', '불가', 'X', '조회 전용']
+  ];
 
   return (
-    <div>
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">웹권한관리</h1>
-        <p className="text-gray-600">사용자별 웹 메뉴 접근 권한을 관리합니다.</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="text-center py-20">
-          <Shield size={64} className="mx-auto mb-4 text-purple-200" />
-          <h3 className="text-lg font-medium text-gray-900">웹 권한 설정</h3>
-          <p className="mt-1 text-gray-500">이 페이지는 현재 개발 중입니다.</p>
-        </div>
-      </div>
-    </div>
+    <SpreadSheet 
+      title="웹권한관리"
+      subTitle="사용자별 웹 메뉴 접근 권한을 관리합니다."
+      headers={headers}
+      data={data}
+      headerColor="#0f766e" // Teal 색상
+      columnWidths={columnWidths}
+    />
   );
+};
+
+// [수정] 고객키관리 페이지: AuthKey 컴포넌트 렌더링
+const CustomerKeyPage = () => {
+  return <AuthKey />;
 };
 
 const ServiceSettingsPage = () => {
@@ -493,7 +420,8 @@ const MainLayout = () => {
 
   const menuItems = [
     { id: 'db-management', label: 'DB 권한관리', icon: FileSpreadsheet, path: '/' },
-    { id: 'web-auth', label: '웹권한관리', icon: Shield, path: '/web-auth' }, // 웹권한관리 메뉴 추가
+    { id: 'web-auth', label: '웹권한관리', icon: Shield, path: '/web-auth' },
+    { id: 'customer-key', label: '고객키관리', icon: Key, path: '/customer-keys' }, // [추가] 메뉴
     { id: 'service-settings', label: '서비스설정관리', icon: Settings, path: '/service-settings' },
     { id: 'service-report', label: '서비스사항', icon: BarChart3, path: '/service-report' },
     { id: 'service-admin', label: '서비스권한관리', icon: Users, path: '/service-admin' },
@@ -508,7 +436,7 @@ const MainLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* 상단 네비게이션 */}
       <nav className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -541,7 +469,7 @@ const MainLayout = () => {
         </div>
       </nav>
 
-      <div className="flex pt-16">
+      <div className="flex flex-1 pt-16">
         {/* 사이드바 */}
         <aside
           className={`fixed inset-y-0 left-0 z-30 w-80 bg-gray-900 text-white transform transition-transform duration-300 ease-in-out ${
@@ -584,39 +512,42 @@ const MainLayout = () => {
           </div>
         </aside>
 
-        {/* 메인 컨텐츠 */}
-        <main className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? 'ml-80' : 'ml-0'}`}>
-          <div className="max-w-7xl mx-auto">
-            <Routes>
-              <Route path="/" element={<DBManagementPage />} />
-              <Route path="/web-auth" element={<WebAuthPage />} /> {/* 웹권한관리 라우트 추가 */}
-              <Route path="/service-settings" element={<ServiceSettingsPage />} />
-              <Route path="/service-report" element={<ServiceReportPage />} />
-              <Route path="/service-admin" element={<ServiceAdminPage />} />
-              <Route path="/config" element={<ConfigPage />} />
-            </Routes>
-          </div>
-        </main>
-      </div>
+        {/* 메인 컨텐츠와 푸터를 감싸는 래퍼 */}
+        <div className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-80' : 'ml-0'}`}>
+            <main className="flex-1 p-6 w-full">
+                <div className="w-full">
+                    <Routes>
+                    <Route path="/" element={<DBManagementPage />} />
+                    <Route path="/web-auth" element={<WebAuthPage />} />
+                    <Route path="/customer-keys" element={<CustomerKeyPage />} /> {/* [추가] 라우트 */}
+                    <Route path="/service-settings" element={<ServiceSettingsPage />} />
+                    <Route path="/service-report" element={<ServiceReportPage />} />
+                    <Route path="/service-admin" element={<ServiceAdminPage />} />
+                    <Route path="/config" element={<ConfigPage />} />
+                    </Routes>
+                </div>
+            </main>
 
-      {/* 푸터 */}
-      <footer className="bg-gray-900 text-white mt-12">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-xl font-bold mb-3">EZoffice</h3>
-              <div className="space-y-2 text-gray-400 text-sm">
-                <p>📍 경기도 수원시 영통구 광교중앙로 248번길 95-5</p>
-                <p>📧 richard.choi@ez-office.co.kr</p>
-                <p>📞 070-7709-5512</p>
-              </div>
-            </div>
-            <div className="text-sm text-gray-400">
-              <p>© Ez Office 2022 all rights reserved</p>
-            </div>
-          </div>
+            {/* 푸터 */}
+            <footer className="bg-gray-900 text-white mt-auto">
+                <div className="max-w-7xl mx-auto px-6 py-8">
+                <div className="grid md:grid-cols-2 gap-8">
+                    <div>
+                    <h3 className="text-xl font-bold mb-3">EZoffice</h3>
+                    <div className="space-y-2 text-gray-400 text-sm">
+                        <p>📍 경기도 수원시 영통구 광교중앙로 248번길 95-5</p>
+                        <p>📧 richard.choi@ez-office.co.kr</p>
+                        <p>📞 070-7709-5512</p>
+                    </div>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                    <p>© Ez Office 2022 all rights reserved</p>
+                    </div>
+                </div>
+                </div>
+            </footer>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };
